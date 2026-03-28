@@ -36,6 +36,10 @@ public class TurfManager {
         this.isZAxis = "Z".equalsIgnoreCase(metadata.getTurfAxis());
     }
 
+    public MapMetadata getMetadata() { return metadata; }
+    public Team getBlueTeam() { return blueTeam; }
+    public Team getRedTeam() { return redTeam; }
+
     public void advanceBlue(int lines) {
         int oldLines = currentLines;
         currentLines = Math.min(totalLines * 2, currentLines + lines);

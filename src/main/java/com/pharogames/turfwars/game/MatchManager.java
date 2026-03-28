@@ -93,6 +93,7 @@ public class MatchManager {
     public boolean isInProgress() { return currentPhase != GamePhase.WAITING && currentPhase != GamePhase.ENDED; }
     public TurfManager getTurfManager() { return turfManager; }
     public WoolManager getWoolManager() { return woolManager; }
+    public TurfWarsConfig getConfig() { return config; }
 
     public void onPlayerJoin(Player player) {
         BackendNetworkAPI api = RelayBackendPlugin.getAPI();
@@ -321,8 +322,23 @@ public class MatchManager {
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 if (victim.isOnline()) {
                     teleportToSpawn(victim);
+                    victim.setGameMode(org.bukkit.GameMode.SURVIVAL);
+                    giveRespawnItems(victim);
                 }
             }, config.getRespawnDelayTicks());
+        }
+    }
+
+    private void giveRespawnItems(Player player) {
+        GameplayAPI gameplay = GameplayAPI.getInstance();
+        if (gameplay != null) {
+            String kitId = gameplay.getSessionKit(player);
+            if (kitId == null) {
+                kitId = gameplay.getPreSelectedKit(player);
+            }
+            if (kitId != null) {
+                gameplay.giveKit(player, kitId);
+            }
         }
     }
 

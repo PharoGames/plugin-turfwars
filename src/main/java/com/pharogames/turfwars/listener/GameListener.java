@@ -40,8 +40,19 @@ public class GameListener implements Listener {
     public void onPlayerMove(PlayerMoveEvent event) {
         if (!matchManager.isInProgress()) return;
         
+        Player player = event.getPlayer();
+        
+        // Check void death
+        if (player.getLocation().getY() < matchManager.getConfig().getVoidDeathY()) {
+            if (player.getGameMode() != GameMode.SPECTATOR) {
+                player.setHealth(0); // This will trigger onPlayerDeath
+            }
+        }
+
         // Enforce boundary
-        matchManager.getTurfManager().enforceBoundary(event.getPlayer());
+        if (player.getGameMode() != GameMode.SPECTATOR) {
+            matchManager.getTurfManager().enforceBoundary(player);
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -70,6 +81,15 @@ public class GameListener implements Listener {
 
         if (!matchManager.isInProgress()) return;
 
+        // Heal and reset state to fake death
+        victim.setHealth(victim.getMaxHealth());
+        victim.setFoodLevel(20);
+        victim.setFireTicks(0);
+        victim.getInventory().clear();
+        
+        // Put in spectator mode for the delay
+        victim.setGameMode(GameMode.SPECTATOR);
+
         Player killer = victim.getKiller();
         matchManager.onKill(killer, victim);
     }
@@ -83,9 +103,35 @@ public class GameListener implements Listener {
             return;
         }
 
+        Player player = event.getPlayer();
+        org.bukkit.Location loc = event.getBlockPlaced().getLocation();
+        com.pharogames.turfwars.config.MapMetadataLoader.MapMetadata metadata = matchManager.getTurfManager().getMetadata();
+        boolean isZAxis = "Z".equalsIgnoreCase(metadata.getTurfAxis());
+        
+        double coord = isZAxis ? loc.getZ() : loc.getX();
+        int startCoord = isZAxis ? (int) metadata.getArenaMin().getZ() : (int) metadata.getArenaMin().getX();
+        double boundary = startCoord + matchManager.getTurfManager().getBlueLines();
+
+        com.pharogames.teams.api.TeamAPI teamAPI = com.pharogames.teams.api.TeamAPI.getInstance();
+        if (teamAPI != null) {
+            com.pharogames.teams.model.Team team = teamAPI.getPlayerTeam(player);
+            if (team != null) {
+                boolean isBlue = team.equals(matchManager.getTurfManager().getBlueTeam());
+                boolean isRed = team.equals(matchManager.getTurfManager().getRedTeam());
+
+                if (isBlue && coord > boundary) {
+                    event.setCancelled(true);
+                    return;
+                } else if (isRed && coord < boundary) {
+                    event.setCancelled(true);
+                    return;
+                }
+            }
+        }
+
         Material type = event.getBlockPlaced().getType();
         if (type == Material.BLUE_WOOL || type == Material.RED_WOOL) {
-            matchManager.getWoolManager().addBlock(event.getBlockPlaced().getLocation());
+            matchManager.getWoolManager().addBlock(loc);
         } else {
             event.setCancelled(true); // Only allow placing wool
         }
