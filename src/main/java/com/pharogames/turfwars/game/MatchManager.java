@@ -375,6 +375,7 @@ public class MatchManager {
                 if (victim.isOnline()) {
                     TeamAPI respawnTeamApi = TeamAPI.getInstance();
                     Team victimTeam = respawnTeamApi != null ? respawnTeamApi.getPlayerTeam(victim) : null;
+                    SpectatorAPI spectator = SpectatorAPI.getInstance();
                     // #region agent log
                     debugLog("H3", "MatchManager.java:onKill:327", "respawn_task_running", Map.of(
                             "victimUuid", victim.getUniqueId().toString(),
@@ -385,8 +386,22 @@ public class MatchManager {
                             "locationZ", victim.getLocation().getZ()
                     ));
                     // #endregion
+                    if (spectator != null && spectator.isSpectator(victim)) {
+                        spectator.removeSpectator(victim);
+                        // #region agent log
+                        debugLog("H3", "MatchManager.java:onKill:338", "respawn_removed_spectator_state", Map.of(
+                                "victimUuid", victim.getUniqueId().toString(),
+                                "team", victimTeam != null ? victimTeam.getName() : "NONE"
+                        ));
+                        // #endregion
+                    }
                     teleportToSpawn(victim);
                     victim.setGameMode(org.bukkit.GameMode.SURVIVAL);
+                    victim.setAllowFlight(false);
+                    victim.setFlying(false);
+                    victim.setHealth(victim.getMaxHealth());
+                    victim.setFoodLevel(20);
+                    victim.setFireTicks(0);
                     giveRespawnItems(victim);
                 }
             }, config.getRespawnDelayTicks());
