@@ -51,9 +51,13 @@ public class GameListener implements Listener {
         if (!matchManager.isInProgress()) return;
         
         Player player = event.getPlayer();
+        int effectiveVoidDeathY = Math.min(
+                matchManager.getConfig().getVoidDeathY(),
+                matchManager.getTurfManager().getMetadata().getFloorY() - 10
+        );
         
         // Check void death
-        if (player.getLocation().getY() < matchManager.getConfig().getVoidDeathY()) {
+        if (player.getLocation().getY() < effectiveVoidDeathY) {
             com.pharogames.spectator.api.SpectatorAPI spectator = com.pharogames.spectator.api.SpectatorAPI.getInstance();
             boolean isSpec = spectator != null ? spectator.isSpectator(player) : player.getGameMode() == GameMode.SPECTATOR;
             
