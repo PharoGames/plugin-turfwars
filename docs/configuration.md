@@ -49,7 +49,28 @@ The map metadata must contain bounds, spawn points, and the axis for the turf li
 1. `WAITING`: Waiting for players. Kits can be selected.
 2. `COUNTDOWN`: Short countdown before teleport.
 3. `BUILD`: Players receive initial wool to build cover. No combat.
-4. `COMBAT`: Bows only combat. Kills advance the turf line.
+4. `COMBAT`: Bows only combat. Kills advance the turf line. Arrow generation runs.
 5. `PEACE`: No combat. Players receive some wool to rebuild cover.
 6. `SUDDEN_DEATH`: Reached after X rounds. No more peace phases. Kills are worth more lines.
-7. `ENDED`: Match is over, stats reported.
+7. `ENDED`: Match is over, stats reported, win effects play, redirect to lobby.
+
+## Mechanics Enforced by GameListener
+
+To ensure smooth gameplay, the following vanilla mechanics are overridden or blocked:
+- **Block Placement/Breaking:** Only `BLUE_WOOL` and `RED_WOOL` can be placed. Breaking map blocks is disallowed; only placed wool can be broken. Building on enemy territory (past the current turf line) is explicitly blocked.
+- **Damage/PvP:** Only arrows do damage, scaled to 1000.0 (one-tap kill). Melee damage is cancelled entirely.
+- **Death Logic (Fake Death):** Vanilla death events are preempted by an `EntityDamageEvent` handler. Fatal damage clears the player's inventory, heals them to max, and places them into spectator mode via `SpectatorAPI`. This prevents vanilla death screens and allows immediate respawn timing logic.
+- **Item Drops & Pickups:** Players cannot drop items. Arrow pickups are blocked to enforce the arrow economy via `ArrowManager`.
+- **Food/Hunger:** Hunger loss is disabled; players are locked at full food (20) to always allow sprinting.
+- **Boundary Enforcement:** Players attempting to cross the turf line are forcibly pushed backwards.
+
+## Dependencies & Integrations
+
+TurfWars integrates closely with the following shared plugins:
+- **Teams (`plugin-teams`)**: Two teams (Blue/Red), friendly fire disabled.
+- **Spectator (`plugin-spectator`)**: Manages fake deaths and late-joiners.
+- **Cosmetics (`plugin-cosmetics`)**: Renders arrow trails dynamically during the `COMBAT` phase and plays kill/win effects.
+- **GameplayRuntime (`plugin-gameplay-runtime`)**: Provides kit selection for bows/armor, though custom arrows/wool are given directly by Turf Wars logic.
+- **PlayerData & Coins**: Reports match stats (kills, wins, duration) and grants coin rewards per kill.
+- **Communicator & Scoreboard**: Handles all titles, messages, action bars, and scoreboard lines.
+- **RelayBackend (`plugin-relay-backend`)**: Defers starting until expected matchmaking players arrive, and sends players back to the lobby when the match ends.
