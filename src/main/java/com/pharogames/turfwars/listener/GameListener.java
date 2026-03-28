@@ -222,4 +222,19 @@ public class GameListener implements Listener {
             event.setCancelled(true);
         }
     }
+
+    @EventHandler
+    public void onPlayerPickupArrow(org.bukkit.event.player.PlayerPickupArrowEvent event) {
+        if (event.getPlayer().getGameMode() != GameMode.CREATIVE) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler
+    public void onFoodLevelChange(org.bukkit.event.entity.FoodLevelChangeEvent event) {
+        event.setCancelled(true);
+        if (event.getEntity() instanceof Player p) {
+            p.setFoodLevel(20);
+        }
+    }
 }
