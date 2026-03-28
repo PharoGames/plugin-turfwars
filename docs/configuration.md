@@ -74,3 +74,67 @@ TurfWars integrates closely with the following shared plugins:
 - **PlayerData & Coins**: Reports match stats (kills, wins, duration) and grants coin rewards per kill.
 - **Communicator & Scoreboard**: Handles all titles, messages, action bars, and scoreboard lines.
 - **RelayBackend (`plugin-relay-backend`)**: Defers starting until expected matchmaking players arrive, and sends players back to the lobby when the match ends.
+
+## Production registration (Admin Dashboard & Metadata Service)
+
+Gamemodes players see in the **Admin Dashboard** and **Metadata Service** are **not** the same string as the Kubernetes **server type** slug.
+
+| Concept | Value | Where it is used |
+|--------|--------|------------------|
+| **Server type** (orchestrator / image / pod) | `turfwars` | `infrastructure/server-types/turfwars.yaml`, `SERVER_TYPE`, Velocity/orchestrator APIs that allocate pods |
+| **Registry gamemode ID** (maps, rotations, UI) | `TURF_WARS` | `metadata.gameType` under `server-types/turfwars.yaml`, MongoDB `gamemodes` collection `_id`, map `gameType`, rotation `gameType` |
+| **Kit/stats key inside this plugin** | `turfwars` | `MatchManager` → `GameplayRuntime.openKitSelector(..., "turfwars", ...)` and match stats payload (same pattern as MicroBattles using `microbattles` vs `MICRO_BATTLES`) |
+
+Infrastructure already declares the link between server type and registry ID:
+
+```yaml
+# infrastructure/server-types/turfwars.yaml (excerpt)
+metadata:
+  gameType: TURF_WARS
+```
+
+### 1. Register the gamemode in the Admin Dashboard
+
+1. Open **Admin Dashboard** → **Gamemodes** (`/dashboard/gamemodes`).
+2. Click **Create Gamemode**.
+3. **ID**: enter exactly `TURF_WARS` (must match `metadata.gameType` in `server-types/turfwars.yaml`).  
+   Do **not** use `turfwars` here—that is the server-type slug, not the metadata gamemode ID.
+4. **Display Name**: e.g. `Turf Wars`.
+5. **Enabled**: on.
+6. **Default Rotation ID** (optional): create a rotation first (step 2), then paste that rotation’s `_id` here.
+7. **Map metadata schema** (recommended): add entries so the map upload/editor UI matches what the game expects. Align **key names** with the JSON in [Map Metadata (`map-metadata.json`)](#map-metadata-map-metadatajson) above. Suggested schema rows:
+
+   | Key | Type | Required | Notes |
+   |-----|------|----------|--------|
+   | `turfAxis` | `string` | yes | `X` or `Z` |
+   | `blueSpawn` | `location` | yes | Team blue spawn |
+   | `redSpawn` | `location` | yes | Team red spawn |
+   | `arenaMin` | `location` | yes | Arena AABB min corner |
+   | `arenaMax` | `location` | yes | Arena AABB max corner |
+   | `floorY` | `int` | yes | Floor level for turf strip |
+   | `totalLines` | `int` | yes | Half-width in “lines”; default e.g. `50` |
+
+8. Save. The dashboard calls the Metadata Service `POST /gamemodes`, which creates the document in MongoDB.
+
+### 2. Create a rotation
+
+1. **Admin Dashboard** → **Rotations** (`/dashboard/rotations`).
+2. Create a rotation with **game type** exactly `TURF_WARS` (same as gamemode `_id`).
+3. Attach map IDs that also have `gameType` = `TURF_WARS`.
+
+### 3. Upload maps
+
+1. **Admin Dashboard** → **Maps** → upload (or edit) maps.
+2. Set **game type** to `TURF_WARS`.
+3. Fill **map metadata** using the schema you defined (spawn, arena bounds, etc.).  
+   After orchestration/config merge, the game server still consumes a merged **`/data/config/map-metadata.json`** shaped like the flat JSON in this doc; the pipeline should supply the same field names.
+
+### 4. Matchmaking (Config Service)
+
+Matchmaking loads per–game-type settings from the Config Service using scope `matchmaking.<gameType>` (e.g. `matchmaking.TURF_WARS`) and expects resolved YAML with a `matchmaking.TURF_WARS` (or nested) section—see **Config Service** docs and existing entries for other modes.  
+If you add queues or API calls that use `gameType=TURF_WARS`, ensure a matching config entry exists or the service will fall back to defaults (`minPlayers` / `maxPlayers` / `maxWaitSeconds`, etc.).
+
+### 5. What you do *not* need to change for “registration”
+
+- **Server type YAML** and **image manifest** for `turfwars` are already part of infrastructure GitOps.
+- Registering the gamemode in the dashboard **only** creates the Metadata Service record so maps, rotations, and tooling know about `TURF_WARS`; it does not deploy pods by itself.
