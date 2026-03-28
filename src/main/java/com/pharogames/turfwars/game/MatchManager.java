@@ -231,6 +231,11 @@ public class MatchManager {
         List<Player> alive = getAlivePlayers();
         arrowManager.startRegen(alive);
 
+        CosmeticsAPI cosmetics = CosmeticsAPI.getInstance();
+        if (cosmetics != null) {
+            cosmetics.startArrowTrails();
+        }
+
         phaseSecondsRemaining = config.getCombatTimerSeconds();
         phaseTimer = new BukkitRunnable() {
             @Override
@@ -369,11 +374,15 @@ public class MatchManager {
         cancelTimer();
         arrowManager.stopRegen();
 
+        CosmeticsAPI cosmetics = CosmeticsAPI.getInstance();
+        if (cosmetics != null) {
+            cosmetics.stopArrowTrails();
+        }
+
         if (winningTeam != null) {
             String colorName = NamedTextColor.NAMES.keyOrThrow(winningTeam.getColor());
             broadcastKey("turfwars.win", Map.of("color", colorName, "team", winningTeam.getName()));
 
-            CosmeticsAPI cosmetics = CosmeticsAPI.getInstance();
             if (cosmetics != null) {
                 for (UUID uuid : winningTeam.getPlayers()) {
                     Player p = plugin.getServer().getPlayer(uuid);
@@ -518,5 +527,11 @@ public class MatchManager {
         cancelTimer();
         if (arrowManager != null) arrowManager.stopRegen();
         if (woolManager != null) woolManager.cleanup();
+
+        CosmeticsAPI cosmetics = CosmeticsAPI.getInstance();
+        if (cosmetics != null) {
+            cosmetics.stopArrowTrails();
+            cosmetics.cleanup();
+        }
     }
 }

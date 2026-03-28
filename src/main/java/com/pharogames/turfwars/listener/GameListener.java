@@ -27,6 +27,16 @@ public class GameListener implements Listener {
     }
 
     @EventHandler
+    public void onProjectileLaunch(org.bukkit.event.entity.ProjectileLaunchEvent event) {
+        if (event.getEntity() instanceof Arrow arrow && arrow.getShooter() instanceof Player shooter) {
+            com.pharogames.cosmetics.api.CosmeticsAPI cosmetics = com.pharogames.cosmetics.api.CosmeticsAPI.getInstance();
+            if (cosmetics != null) {
+                cosmetics.trackArrow(shooter, arrow);
+            }
+        }
+    }
+
+    @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         matchManager.onPlayerJoin(event.getPlayer());
     }
@@ -44,8 +54,23 @@ public class GameListener implements Listener {
         
         // Check void death
         if (player.getLocation().getY() < matchManager.getConfig().getVoidDeathY()) {
-            if (player.getGameMode() != GameMode.SPECTATOR) {
-                player.setHealth(0); // This will trigger onPlayerDeath
+            com.pharogames.spectator.api.SpectatorAPI spectator = com.pharogames.spectator.api.SpectatorAPI.getInstance();
+            boolean isSpec = spectator != null ? spectator.isSpectator(player) : player.getGameMode() == GameMode.SPECTATOR;
+            
+            if (!isSpec) {
+                // Fake death
+                player.setHealth(player.getMaxHealth());
+                player.setFoodLevel(20);
+                player.setFireTicks(0);
+                player.getInventory().clear();
+                
+                if (spectator != null) {
+                    spectator.setSpectator(player);
+                } else {
+                    player.setGameMode(GameMode.SPECTATOR);
+                }
+                matchManager.onKill(null, player);
+                return;
             }
         }
 
@@ -74,23 +99,60 @@ public class GameListener implements Listener {
         }
     }
 
-    @EventHandler
-    public void onPlayerDeath(PlayerDeathEvent event) {
-        Player victim = event.getEntity();
-        event.setCancelled(true); // Cancel native death screen
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onEntityDamageWouldKill(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player victim)) return;
 
         if (!matchManager.isInProgress()) return;
 
-        // Heal and reset state to fake death
+        com.pharogames.spectator.api.SpectatorAPI spectator = com.pharogames.spectator.api.SpectatorAPI.getInstance();
+        if (spectator != null && spectator.isSpectator(victim)) return;
+
+        if (event.getFinalDamage() < victim.getHealth()) return;
+
+        event.setCancelled(true); // Prevent the actual death
+
+        // Fake death
         victim.setHealth(victim.getMaxHealth());
         victim.setFoodLevel(20);
         victim.setFireTicks(0);
         victim.getInventory().clear();
         
-        // Put in spectator mode for the delay
-        victim.setGameMode(GameMode.SPECTATOR);
+        Player killer = null;
+        if (event instanceof EntityDamageByEntityEvent entityEvent) {
+            if (entityEvent.getDamager() instanceof Arrow arrow && arrow.getShooter() instanceof Player p) {
+                killer = p;
+            } else if (entityEvent.getDamager() instanceof Player p) {
+                killer = p;
+            }
+        }
+        
+        if (spectator != null) {
+            spectator.setSpectator(victim); // Uses spectator plugin
+        } else {
+            victim.setGameMode(GameMode.SPECTATOR); // Fallback
+        }
 
+        matchManager.onKill(killer, victim);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        // Fallback for /kill or similar that bypasses EntityDamageEvent
+        event.setDeathMessage(null);
+        if (!matchManager.isInProgress()) return;
+        
+        Player victim = event.getEntity();
         Player killer = victim.getKiller();
+        
+        // Put in spectator mode for the delay
+        com.pharogames.spectator.api.SpectatorAPI spectator = com.pharogames.spectator.api.SpectatorAPI.getInstance();
+        if (spectator != null) {
+            spectator.setSpectator(victim);
+        } else {
+            victim.setGameMode(GameMode.SPECTATOR);
+        }
+        
         matchManager.onKill(killer, victim);
     }
 
