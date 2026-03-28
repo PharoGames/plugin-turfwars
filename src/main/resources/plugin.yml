@@ -1,0 +1,7 @@
+name: TurfWars
+version: ${project.version}
+main: com.pharogames.turfwars.TurfWarsPlugin
+api-version: 1.21
+author: PharoGames
+description: Turf Wars gamemode - 2 teams, bow combat, advancing lines
+softdepend: [GameplayRuntime, Items, Teams, Spectator, Communicator, Scoreboard, PlayerData, Cosmetics, Coins, RelayBackend]
