@@ -20,12 +20,12 @@ public class ArrowManager {
         this.config = config;
     }
 
-    public void startRegen(Collection<Player> alivePlayers) {
+    public void startRegen(java.util.function.Supplier<Collection<Player>> alivePlayersSupplier) {
         int intervalTicks = config.getArrowRegenIntervalSeconds() * 20;
         regenTask = new BukkitRunnable() {
             @Override
             public void run() {
-                for (Player player : alivePlayers) {
+                for (Player player : alivePlayersSupplier.get()) {
                     if (player.isOnline()) {
                         giveArrows(player, 1);
                     }

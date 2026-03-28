@@ -228,8 +228,7 @@ public class MatchManager {
         setPhase(GamePhase.COMBAT);
         broadcastKey("turfwars.combat_start");
 
-        List<Player> alive = getAlivePlayers();
-        arrowManager.startRegen(alive);
+        arrowManager.startRegen(this::getAlivePlayers);
 
         CosmeticsAPI cosmetics = CosmeticsAPI.getInstance();
         if (cosmetics != null) {
@@ -281,7 +280,7 @@ public class MatchManager {
     private void startSuddenDeath() {
         setPhase(GamePhase.SUDDEN_DEATH);
         broadcastKey("turfwars.sudden_death_start");
-        arrowManager.startRegen(getAlivePlayers());
+        arrowManager.startRegen(this::getAlivePlayers);
     }
 
     public void onKill(Player killer, Player victim) {
