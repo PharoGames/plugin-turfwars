@@ -153,4 +153,11 @@ public class GameListener implements Listener {
             event.setCancelled(true); // Cannot break map
         }
     }
+
+    @EventHandler
+    public void onPlayerDropItem(org.bukkit.event.player.PlayerDropItemEvent event) {
+        if (event.getPlayer().getGameMode() != GameMode.CREATIVE) {
+            event.setCancelled(true);
+        }
+    }
 }
