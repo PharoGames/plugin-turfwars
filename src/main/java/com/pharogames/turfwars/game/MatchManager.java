@@ -28,6 +28,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,6 +44,10 @@ import java.util.concurrent.ThreadLocalRandom;
 public class MatchManager {
 
     private static final String GAMEMODE_ID = "turfwars";
+    private static final String DEBUG_LOG_PATH = "/home/venur/pharogames/.cursor/debug-194ceb.log";
+    private static final String DEBUG_SESSION_ID = "194ceb";
+    private static final String DEBUG_RUN_ID = "pre-fix";
+    private static final ObjectMapper DEBUG_MAPPER = new ObjectMapper();
 
     private final JavaPlugin plugin;
     private final TurfWarsConfig config;
@@ -97,6 +106,22 @@ public class MatchManager {
 
     public void onPlayerJoin(Player player) {
         BackendNetworkAPI api = RelayBackendPlugin.getAPI();
+        TeamAPI teamAPI = TeamAPI.getInstance();
+        Team currentTeam = teamAPI != null ? teamAPI.getPlayerTeam(player) : null;
+        boolean hasExpectedPlayers = api != null && api.hasExpectedPlayers();
+        int expectedCount = hasExpectedPlayers ? api.getExpectedPlayers().size() : -1;
+        boolean expectedPlayer = !hasExpectedPlayers || api.isExpectedPlayer(player.getUniqueId());
+        // #region agent log
+        debugLog("H1", "MatchManager.java:onPlayerJoin:98", "player_joined", Map.of(
+                "playerUuid", player.getUniqueId().toString(),
+                "phase", currentPhase.name(),
+                "onlineCount", world.getPlayers().size(),
+                "hasExpectedPlayers", hasExpectedPlayers,
+                "expectedCount", expectedCount,
+                "expectedPlayer", expectedPlayer,
+                "team", currentTeam != null ? currentTeam.getName() : "NONE"
+        ));
+        // #endregion
         if (api != null && api.hasExpectedPlayers() && !api.isExpectedPlayer(player.getUniqueId())) {
             SpectatorAPI spectator = SpectatorAPI.getInstance();
             if (spectator != null) {
@@ -115,11 +140,27 @@ public class MatchManager {
             openKitSelectorPreview(player);
             giveKitSelectorItem(player);
 
+            // #region agent log
+            debugLog("H1", "MatchManager.java:onPlayerJoin:118", "countdown_gate_evaluated", Map.of(
+                    "playerUuid", player.getUniqueId().toString(),
+                    "shouldStartCountdown", shouldStartCountdown(),
+                    "onlineCount", world.getPlayers().size(),
+                    "hasExpectedPlayers", hasExpectedPlayers,
+                    "expectedCount", expectedCount
+            ));
+            // #endregion
             if (shouldStartCountdown()) {
                 startCountdown();
             }
         } else {
             SpectatorAPI spectator = SpectatorAPI.getInstance();
+            // #region agent log
+            debugLog("H2", "MatchManager.java:onPlayerJoin:121", "late_join_sent_to_spectator", Map.of(
+                    "playerUuid", player.getUniqueId().toString(),
+                    "phase", currentPhase.name(),
+                    "team", currentTeam != null ? currentTeam.getName() : "NONE"
+            ));
+            // #endregion
             if (spectator != null) {
                 spectator.setSpectator(player);
                 setScoreboard(player, ScoreboardType.SPECTATOR);
@@ -158,6 +199,13 @@ public class MatchManager {
             for (int i = 0; i < players.size(); i++) {
                 Team team = (i % 2 == 0) ? blueTeam : redTeam;
                 teamAPI.addPlayer(players.get(i), team);
+                // #region agent log
+                debugLog("H2", "MatchManager.java:startCountdown:159", "countdown_team_assigned", Map.of(
+                        "playerUuid", players.get(i).getUniqueId().toString(),
+                        "team", team != null ? team.getName() : "NONE",
+                        "onlineCount", players.size()
+                ));
+                // #endregion
             }
         }
 
@@ -325,6 +373,18 @@ public class MatchManager {
             // Schedule respawn
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 if (victim.isOnline()) {
+                    TeamAPI respawnTeamApi = TeamAPI.getInstance();
+                    Team victimTeam = respawnTeamApi != null ? respawnTeamApi.getPlayerTeam(victim) : null;
+                    // #region agent log
+                    debugLog("H3", "MatchManager.java:onKill:327", "respawn_task_running", Map.of(
+                            "victimUuid", victim.getUniqueId().toString(),
+                            "phase", currentPhase.name(),
+                            "team", victimTeam != null ? victimTeam.getName() : "NONE",
+                            "locationX", victim.getLocation().getX(),
+                            "locationY", victim.getLocation().getY(),
+                            "locationZ", victim.getLocation().getZ()
+                    ));
+                    // #endregion
                     teleportToSpawn(victim);
                     victim.setGameMode(org.bukkit.GameMode.SURVIVAL);
                     giveRespawnItems(victim);
@@ -448,7 +508,18 @@ public class MatchManager {
         if (teamAPI == null) return;
 
         Team team = teamAPI.getPlayerTeam(player);
-        if (team == null) return;
+        if (team == null) {
+            // #region agent log
+            debugLog("H3", "MatchManager.java:teleportToSpawn:450", "teleport_skipped_missing_team", Map.of(
+                    "playerUuid", player.getUniqueId().toString(),
+                    "phase", currentPhase.name(),
+                    "locationX", player.getLocation().getX(),
+                    "locationY", player.getLocation().getY(),
+                    "locationZ", player.getLocation().getZ()
+            ));
+            // #endregion
+            return;
+        }
 
         com.pharogames.turfwars.config.MapMetadataLoader.Point p = team.equals(blueTeam) ? mapMetadata.getBlueSpawn() : mapMetadata.getRedSpawn();
         Location loc = new Location(world, p.getX(), p.getY(), p.getZ());
@@ -459,8 +530,39 @@ public class MatchManager {
         } else {
             loc.setYaw(loc.getX() > 0 ? 90 : -90);
         }
-        
+
+        // #region agent log
+        debugLog("H4", "MatchManager.java:teleportToSpawn:463", "teleporting_to_team_spawn", Map.of(
+                "playerUuid", player.getUniqueId().toString(),
+                "team", team.getName(),
+                "targetX", loc.getX(),
+                "targetY", loc.getY(),
+                "targetZ", loc.getZ(),
+                "phase", currentPhase.name()
+        ));
+        // #endregion
         player.teleport(loc);
+    }
+
+    private void debugLog(String hypothesisId, String location, String message, Map<String, Object> data) {
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("sessionId", DEBUG_SESSION_ID);
+            payload.put("runId", DEBUG_RUN_ID);
+            payload.put("hypothesisId", hypothesisId);
+            payload.put("location", location);
+            payload.put("message", message);
+            payload.put("data", data);
+            payload.put("timestamp", System.currentTimeMillis());
+            payload.put("id", "log_" + System.currentTimeMillis() + "_" + hypothesisId);
+            Files.writeString(
+                    Path.of(DEBUG_LOG_PATH),
+                    DEBUG_MAPPER.writeValueAsString(payload) + System.lineSeparator(),
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND
+            );
+        } catch (Exception ignored) {
+        }
     }
 
     private List<Player> getAlivePlayers() {
