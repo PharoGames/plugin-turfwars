@@ -329,6 +329,24 @@ public class MatchManager {
         setPhase(GamePhase.SUDDEN_DEATH);
         broadcastKey("turfwars.sudden_death_start");
         arrowManager.startRegen(this::getAlivePlayers);
+        
+        phaseSecondsRemaining = 0;
+        phaseTimer = new BukkitRunnable() {
+            @Override
+            public void run() {
+                phaseSecondsRemaining++;
+                int interval = config.getSuddenDeathWoolIntervalSeconds();
+                int amount = config.getSuddenDeathWoolAmount();
+                
+                if (interval > 0 && phaseSecondsRemaining % interval == 0) {
+                    if (amount > 0) {
+                        for (Player p : getAlivePlayers()) {
+                            woolManager.giveWool(p, amount);
+                        }
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 20L, 20L);
     }
 
     private int calculateLinesPerKill() {
@@ -390,8 +408,32 @@ public class MatchManager {
                 }
             }
             
+            String victimName = victim.getName();
+            String killerName = killer.getName();
+            
+            if (teamAPI != null) {
+                Team victimTeam = teamAPI.getPlayerTeam(victim);
+                Team killerTeam = teamAPI.getPlayerTeam(killer);
+                
+                if (victimTeam != null) {
+                    if (victimTeam.equals(blueTeam)) {
+                        victimName = "<blue>" + victimName + "</blue>";
+                    } else if (victimTeam.equals(redTeam)) {
+                        victimName = "<red>" + victimName + "</red>";
+                    }
+                }
+                
+                if (killerTeam != null) {
+                    if (killerTeam.equals(blueTeam)) {
+                        killerName = "<blue>" + killerName + "</blue>";
+                    } else if (killerTeam.equals(redTeam)) {
+                        killerName = "<red>" + killerName + "</red>";
+                    }
+                }
+            }
+            
             String msgKey = "turfwars.player_eliminated";
-            broadcastKey(msgKey, Map.of("victim", victim.getName(), "killer", killer.getName()));
+            broadcastKey(msgKey, Map.of("victim", victimName, "killer", killerName));
         }
 
         checkWinCondition();

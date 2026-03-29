@@ -42,6 +42,12 @@ public class TurfWarsConfig {
     @JsonProperty("suddenDeathLinesPerKill")
     private int suddenDeathLinesPerKill = 2;
 
+    @JsonProperty("suddenDeathWoolIntervalSeconds")
+    private int suddenDeathWoolIntervalSeconds = 15;
+
+    @JsonProperty("suddenDeathWoolAmount")
+    private int suddenDeathWoolAmount = 10;
+
     @JsonProperty("respawnDelayTicks")
     private int respawnDelayTicks = 40;
 
@@ -91,6 +97,12 @@ public class TurfWarsConfig {
 
     public int getSuddenDeathLinesPerKill() { return suddenDeathLinesPerKill; }
     public void setSuddenDeathLinesPerKill(int suddenDeathLinesPerKill) { this.suddenDeathLinesPerKill = suddenDeathLinesPerKill; }
+
+    public int getSuddenDeathWoolIntervalSeconds() { return suddenDeathWoolIntervalSeconds; }
+    public void setSuddenDeathWoolIntervalSeconds(int suddenDeathWoolIntervalSeconds) { this.suddenDeathWoolIntervalSeconds = suddenDeathWoolIntervalSeconds; }
+
+    public int getSuddenDeathWoolAmount() { return suddenDeathWoolAmount; }
+    public void setSuddenDeathWoolAmount(int suddenDeathWoolAmount) { this.suddenDeathWoolAmount = suddenDeathWoolAmount; }
 
     public int getRespawnDelayTicks() { return respawnDelayTicks; }
     public void setRespawnDelayTicks(int respawnDelayTicks) { this.respawnDelayTicks = respawnDelayTicks; }
