@@ -59,7 +59,7 @@ The map metadata must contain bounds, spawn points, and the axis for the turf li
 To ensure smooth gameplay, the following vanilla mechanics are overridden or blocked:
 - **Block Placement/Breaking:** Only `BLUE_WOOL` and `RED_WOOL` can be placed. Breaking map blocks is disallowed; only placed wool can be broken. Building on enemy territory (past the current turf line) is explicitly blocked.
 - **Damage/PvP:** Only arrows do damage, scaled to 1000.0 (one-tap kill). Melee damage is cancelled entirely.
-- **Death Logic (Fake Death):** Vanilla death events are preempted by an `EntityDamageEvent` handler. Fatal damage clears the player's inventory, heals them to max, and places them into spectator mode via `SpectatorAPI`. This prevents vanilla death screens and allows immediate respawn timing logic.
+- **Death Logic (Fake Death):** Vanilla death events are preempted by an `EntityDamageEvent` handler. Fatal damage (including fall damage and void) clears the player's inventory, heals them to max, and places them into spectator mode via `SpectatorAPI`. After `respawnDelayTicks`, players are always restored at their team spawn with kit re-applied, in any active match phase (`BUILD`, `PEACE`, `COMBAT`, etc.). Kill credit, turf line movement, coins, and the elimination broadcast run only during `COMBAT` or `SUDDEN_DEATH` when there is a killer.
 - **Item Drops & Pickups:** Players cannot drop items. Arrow pickups are blocked to enforce the arrow economy via `ArrowManager`.
 - **Food/Hunger:** Hunger loss is disabled; players are locked at full food (20) to always allow sprinting.
 - **Boundary Enforcement:** Players attempting to cross the turf line are forcibly pushed backwards.

@@ -377,63 +377,65 @@ public class MatchManager {
     }
 
     public void onKill(Player killer, Player victim) {
-        if (currentPhase != GamePhase.COMBAT && currentPhase != GamePhase.SUDDEN_DEATH) return;
+        // PvP rewards, turf lines, and elimination broadcast only during combat.
+        // Fall, void, and other deaths still schedule respawn below.
+        if (currentPhase == GamePhase.COMBAT || currentPhase == GamePhase.SUDDEN_DEATH) {
+            if (killer != null) {
+                killTracker.merge(killer.getUniqueId(), 1, Integer::sum);
+                arrowManager.grantKillArrows(killer);
 
-        if (killer != null) {
-            killTracker.merge(killer.getUniqueId(), 1, Integer::sum);
-            arrowManager.grantKillArrows(killer);
-
-            CoinsAPI coinsApi = CoinsAPI.getInstance();
-            if (coinsApi != null) {
-                coinsApi.recordKill(killer.getUniqueId(), victim.getUniqueId());
-            }
-
-            TeamAPI teamAPI = TeamAPI.getInstance();
-            if (teamAPI != null) {
-                Team killerTeam = teamAPI.getPlayerTeam(killer);
-                int linesToAdvance = calculateLinesPerKill();
-
-                if (killerTeam != null && killerTeam.equals(blueTeam)) {
-                    turfManager.advanceBlue(linesToAdvance);
-                } else if (killerTeam != null && killerTeam.equals(redTeam)) {
-                    turfManager.advanceRed(linesToAdvance);
+                CoinsAPI coinsApi = CoinsAPI.getInstance();
+                if (coinsApi != null) {
+                    coinsApi.recordKill(killer.getUniqueId(), victim.getUniqueId());
                 }
-            }
-            
-            CosmeticsAPI cosmetics = CosmeticsAPI.getInstance();
-            if (cosmetics != null) {
-                String effectId = cosmetics.getKillEffect(killer.getUniqueId());
-                if (effectId != null) {
-                    cosmetics.playKillEffect(effectId, victim.getLocation());
-                }
-            }
-            
-            String victimName = victim.getName();
-            String killerName = killer.getName();
-            
-            if (teamAPI != null) {
-                Team victimTeam = teamAPI.getPlayerTeam(victim);
-                Team killerTeam = teamAPI.getPlayerTeam(killer);
-                
-                if (victimTeam != null) {
-                    if (victimTeam.equals(blueTeam)) {
-                        victimName = "<blue>" + victimName + "</blue>";
-                    } else if (victimTeam.equals(redTeam)) {
-                        victimName = "<red>" + victimName + "</red>";
+
+                TeamAPI teamAPI = TeamAPI.getInstance();
+                if (teamAPI != null) {
+                    Team killerTeam = teamAPI.getPlayerTeam(killer);
+                    int linesToAdvance = calculateLinesPerKill();
+
+                    if (killerTeam != null && killerTeam.equals(blueTeam)) {
+                        turfManager.advanceBlue(linesToAdvance);
+                    } else if (killerTeam != null && killerTeam.equals(redTeam)) {
+                        turfManager.advanceRed(linesToAdvance);
                     }
                 }
-                
-                if (killerTeam != null) {
-                    if (killerTeam.equals(blueTeam)) {
-                        killerName = "<blue>" + killerName + "</blue>";
-                    } else if (killerTeam.equals(redTeam)) {
-                        killerName = "<red>" + killerName + "</red>";
+
+                CosmeticsAPI cosmetics = CosmeticsAPI.getInstance();
+                if (cosmetics != null) {
+                    String effectId = cosmetics.getKillEffect(killer.getUniqueId());
+                    if (effectId != null) {
+                        cosmetics.playKillEffect(effectId, victim.getLocation());
                     }
                 }
+
+                String victimName = victim.getName();
+                String killerName = killer.getName();
+
+                if (teamAPI != null) {
+                    Team victimTeam = teamAPI.getPlayerTeam(victim);
+                    Team killerTeam = teamAPI.getPlayerTeam(killer);
+
+                    if (victimTeam != null) {
+                        if (victimTeam.equals(blueTeam)) {
+                            victimName = "<blue>" + victimName + "</blue>";
+                        } else if (victimTeam.equals(redTeam)) {
+                            victimName = "<red>" + victimName + "</red>";
+                        }
+                    }
+
+                    if (killerTeam != null) {
+                        if (killerTeam.equals(blueTeam)) {
+                            killerName = "<blue>" + killerName + "</blue>";
+                        } else if (killerTeam.equals(redTeam)) {
+                            killerName = "<red>" + killerName + "</red>";
+                        }
+                    }
+                }
+
+                String msgKey = "turfwars.player_eliminated";
+                broadcastKey(msgKey, Map.of("victim", victimName, "killer", killerName));
             }
-            
-            String msgKey = "turfwars.player_eliminated";
-            broadcastKey(msgKey, Map.of("victim", victimName, "killer", killerName));
         }
 
         checkWinCondition();
