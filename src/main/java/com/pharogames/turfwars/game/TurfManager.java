@@ -52,6 +52,21 @@ public class TurfManager {
         updateTurf(oldLines, currentLines, false);
     }
 
+    /**
+     * Top block Y for converting placed wool when the turf line moves.
+     * Uses the upper arena bound (max of min/max corners). If metadata only describes a flat
+     * footprint (ceiling Y at or below {@code floorY}), scans upward so player-built cover converts too.
+     */
+    private int getWoolConversionMaxBlockY(int floorY) {
+        double maxArenaY = Math.max(metadata.getArenaMin().getY(), metadata.getArenaMax().getY());
+        int top = (int) Math.floor(maxArenaY);
+        if (top <= floorY) {
+            int extend = 96;
+            top = floorY + extend;
+        }
+        return Math.min(top, world.getMaxHeight() - 1);
+    }
+
     private void updateTurf(int oldLines, int newLines, boolean blueAdvancing) {
         if (oldLines == newLines) return;
 
@@ -65,6 +80,7 @@ public class TurfManager {
         int minZ = (int) metadata.getArenaMin().getZ();
         int maxZ = (int) metadata.getArenaMax().getZ();
         int floorY = metadata.getFloorY();
+        int woolTopY = getWoolConversionMaxBlockY(floorY);
 
         int spanMin = isZAxis ? minX : minZ;
         int spanMax = isZAxis ? maxX : maxZ;
@@ -81,8 +97,8 @@ public class TurfManager {
                 Block floorBlock = world.getBlockAt(x, floorY, z);
                 floorBlock.setType(material);
 
-                // Destroy enemy wool above floor
-                for (int y = floorY + 1; y <= metadata.getArenaMax().getY(); y++) {
+                // Convert enemy placed wool from just above floor through arena/build height
+                for (int y = floorY + 1; y <= woolTopY; y++) {
                     Block b = world.getBlockAt(x, y, z);
                     if (blueAdvancing && b.getType() == Material.RED_WOOL) {
                         b.setType(Material.BLUE_WOOL);
