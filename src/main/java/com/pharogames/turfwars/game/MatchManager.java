@@ -539,6 +539,32 @@ public class MatchManager {
             }
         }
 
+        if (!killTracker.isEmpty()) {
+            List<Map.Entry<UUID, Integer>> sortedKillers = new ArrayList<>(killTracker.entrySet());
+            sortedKillers.sort((a, b) -> b.getValue().compareTo(a.getValue()));
+
+            broadcastKey("turfwars.top_killers_header");
+            int rank = 1;
+            for (int i = 0; i < Math.min(3, sortedKillers.size()); i++) {
+                Map.Entry<UUID, Integer> entry = sortedKillers.get(i);
+                Player p = plugin.getServer().getPlayer(entry.getKey());
+                String name = p != null ? p.getName() : plugin.getServer().getOfflinePlayer(entry.getKey()).getName();
+                if (name == null) name = "Unknown";
+                
+                TeamAPI teamAPI = TeamAPI.getInstance();
+                if (teamAPI != null && p != null) {
+                    Team team = teamAPI.getPlayerTeam(p);
+                    if (team != null) {
+                        if (team.equals(blueTeam)) name = "<blue>" + name + "</blue>";
+                        else if (team.equals(redTeam)) name = "<red>" + name + "</red>";
+                    }
+                }
+
+                broadcastKey("turfwars.top_killer_" + rank, Map.of("name", name, "kills", String.valueOf(entry.getValue())));
+                rank++;
+            }
+        }
+
         reportStats(winningTeam);
 
         BackendNetworkAPI networkApi = RelayBackendPlugin.getAPI();
