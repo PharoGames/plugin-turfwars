@@ -14,6 +14,7 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -32,6 +33,20 @@ public class GameListener implements Listener {
             com.pharogames.cosmetics.api.CosmeticsAPI cosmetics = com.pharogames.cosmetics.api.CosmeticsAPI.getInstance();
             if (cosmetics != null) {
                 cosmetics.trackArrow(shooter, arrow);
+            }
+        }
+    }
+
+    @EventHandler
+    public void onProjectileHit(ProjectileHitEvent event) {
+        if (event.getEntity() instanceof Arrow arrow && arrow.getShooter() instanceof Player shooter) {
+            if (event.getHitBlock() != null) {
+                org.bukkit.Location loc = event.getHitBlock().getLocation();
+                if (matchManager.getWoolManager().isPlacedWool(loc)) {
+                    event.getHitBlock().setType(Material.AIR);
+                    matchManager.getWoolManager().removeBlock(loc);
+                    arrow.remove();
+                }
             }
         }
     }
@@ -174,9 +189,9 @@ public class GameListener implements Listener {
         com.pharogames.turfwars.config.MapMetadataLoader.MapMetadata metadata = matchManager.getTurfManager().getMetadata();
         boolean isZAxis = "Z".equalsIgnoreCase(metadata.getTurfAxis());
         
-        double coord = isZAxis ? loc.getZ() : loc.getX();
+        int coord = isZAxis ? loc.getBlockZ() : loc.getBlockX();
         int startCoord = isZAxis ? (int) metadata.getArenaMin().getZ() : (int) metadata.getArenaMin().getX();
-        double boundary = startCoord + matchManager.getTurfManager().getBlueLines();
+        int boundary = startCoord + matchManager.getTurfManager().getBlueLines();
 
         com.pharogames.teams.api.TeamAPI teamAPI = com.pharogames.teams.api.TeamAPI.getInstance();
         if (teamAPI != null) {
@@ -185,7 +200,7 @@ public class GameListener implements Listener {
                 boolean isBlue = team.equals(matchManager.getTurfManager().getBlueTeam());
                 boolean isRed = team.equals(matchManager.getTurfManager().getRedTeam());
 
-                if (isBlue && coord > boundary) {
+                if (isBlue && coord >= boundary) {
                     event.setCancelled(true);
                     return;
                 } else if (isRed && coord < boundary) {

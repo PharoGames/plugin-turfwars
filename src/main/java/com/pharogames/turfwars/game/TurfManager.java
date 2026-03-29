@@ -85,11 +85,9 @@ public class TurfManager {
                 for (int y = floorY + 1; y <= metadata.getArenaMax().getY(); y++) {
                     Block b = world.getBlockAt(x, y, z);
                     if (blueAdvancing && b.getType() == Material.RED_WOOL) {
-                        b.setType(Material.AIR);
-                        woolManager.removeBlock(b.getLocation());
+                        b.setType(Material.BLUE_WOOL);
                     } else if (!blueAdvancing && b.getType() == Material.BLUE_WOOL) {
-                        b.setType(Material.AIR);
-                        woolManager.removeBlock(b.getLocation());
+                        b.setType(Material.RED_WOOL);
                     }
                 }
             }

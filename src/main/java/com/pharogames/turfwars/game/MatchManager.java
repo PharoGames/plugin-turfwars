@@ -331,6 +331,33 @@ public class MatchManager {
         arrowManager.startRegen(this::getAlivePlayers);
     }
 
+    private int calculateLinesPerKill() {
+        com.pharogames.teams.api.TeamAPI teamAPI = com.pharogames.teams.api.TeamAPI.getInstance();
+        if (teamAPI == null) return 1;
+        
+        com.pharogames.turfwars.game.TurfManager turfManager = getTurfManager();
+        com.pharogames.teams.model.Team blueTeam = turfManager.getBlueTeam();
+        com.pharogames.teams.model.Team redTeam = turfManager.getRedTeam();
+        
+        int bSize = blueTeam != null ? blueTeam.getPlayers().size() : 0;
+        int rSize = redTeam != null ? redTeam.getPlayers().size() : 0;
+        int maxTeamSize = Math.max(bSize, rSize);
+        
+        int baseLines;
+        if (maxTeamSize <= 1) baseLines = 10;
+        else if (maxTeamSize == 2) baseLines = 8;
+        else if (maxTeamSize == 3) baseLines = 6;
+        else if (maxTeamSize == 4) baseLines = 4;
+        else if (maxTeamSize == 5) baseLines = 3;
+        else if (maxTeamSize <= 10) baseLines = 2;
+        else baseLines = 1;
+
+        if (currentPhase == GamePhase.SUDDEN_DEATH) {
+            return baseLines * 2;
+        }
+        return baseLines;
+    }
+
     public void onKill(Player killer, Player victim) {
         if (currentPhase != GamePhase.COMBAT && currentPhase != GamePhase.SUDDEN_DEATH) return;
 
@@ -346,7 +373,7 @@ public class MatchManager {
             TeamAPI teamAPI = TeamAPI.getInstance();
             if (teamAPI != null) {
                 Team killerTeam = teamAPI.getPlayerTeam(killer);
-                int linesToAdvance = currentPhase == GamePhase.SUDDEN_DEATH ? config.getSuddenDeathLinesPerKill() : config.getLinesPerKill();
+                int linesToAdvance = calculateLinesPerKill();
 
                 if (killerTeam != null && killerTeam.equals(blueTeam)) {
                     turfManager.advanceBlue(linesToAdvance);
