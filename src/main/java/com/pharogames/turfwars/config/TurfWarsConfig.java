@@ -4,8 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * Configuration POJO for TurfWars.
- * Loaded from /data/config/plugin-turfwars.json (written by configloader),
- * with fallback to config.yml in the plugin data folder.
+ * Loaded from config.yml in the plugin data folder.
  */
 public class TurfWarsConfig {
 

@@ -2,7 +2,7 @@
 
 ## Config Keys
 
-The plugin reads from `/data/config/plugin-turfwars.json` (provided by Config Service under scope `plugin:plugin-turfwars`). If not found, it falls back to `config.yml` in the plugin data folder.
+The plugin reads from `config.yml` in the plugin data folder (provided by Config Service under scope `plugin:plugin-turfwars`).
 
 ```yaml
 countdownTime: 10
