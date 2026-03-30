@@ -16,6 +16,7 @@ peaceWoolAmount: 25
 linesPerKill: 1
 suddenDeathAfterRounds: 5
 suddenDeathLinesPerKill: 2
+suddenDeathMultiplierStepSeconds: 150
 respawnDelayTicks: 40
 voidDeathY: -5
 expectedPlayerWaitTimeout: 20
@@ -51,7 +52,7 @@ The map metadata must contain bounds, spawn points, and the axis for the turf li
 3. `BUILD`: Players receive initial wool to build cover. No combat.
 4. `COMBAT`: Bows only combat. Kills advance the turf line. Arrow generation runs.
 5. `PEACE`: No combat. Players receive some wool to rebuild cover.
-6. `SUDDEN_DEATH`: Reached after X rounds. No more peace phases. Kills are worth more lines.
+6. `SUDDEN_DEATH`: Reached after X rounds. No more peace phases. Kill line gain starts at `suddenDeathLinesPerKill`× the team-size-based base (default 2×), then increases by 1× every `suddenDeathMultiplierStepSeconds` (default 150s): 3×, 4×, 5×, and so on until the match ends.
 7. `ENDED`: Match is over, stats reported, win effects play, redirect to lobby.
 
 ## Mechanics Enforced by GameListener

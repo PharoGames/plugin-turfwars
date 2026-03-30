@@ -70,6 +70,9 @@ public class MatchManager {
 
     private final Map<UUID, Integer> killTracker = new HashMap<>();
 
+    /** Last sudden-death kill multiplier we broadcast; avoids duplicate tier-up messages. */
+    private int suddenDeathMultiplierLastAnnounced;
+
     public MatchManager(JavaPlugin plugin, TurfWarsConfig config, World world, 
                         TurfWarsScoreboardProvider scoreboardProvider, MapMetadata mapMetadata) {
         this.plugin = plugin;
@@ -331,10 +334,17 @@ public class MatchManager {
         arrowManager.startRegen(this::getAlivePlayers);
         
         phaseSecondsRemaining = 0;
+        suddenDeathMultiplierLastAnnounced = Math.max(1, config.getSuddenDeathLinesPerKill());
         phaseTimer = new BukkitRunnable() {
             @Override
             public void run() {
                 phaseSecondsRemaining++;
+                int currentMultiplier = getSuddenDeathKillLineMultiplier();
+                if (currentMultiplier > suddenDeathMultiplierLastAnnounced) {
+                    suddenDeathMultiplierLastAnnounced = currentMultiplier;
+                    broadcastKey("turfwars.sudden_death_multiplier_increased",
+                            Map.of("multiplier", String.valueOf(currentMultiplier)));
+                }
                 int interval = config.getSuddenDeathWoolIntervalSeconds();
                 int amount = config.getSuddenDeathWoolAmount();
                 
@@ -347,6 +357,16 @@ public class MatchManager {
                 }
             }
         }.runTaskTimer(plugin, 20L, 20L);
+    }
+
+    /**
+     * Kill line multiplier during sudden death: starts at {@code suddenDeathLinesPerKill},
+     * then increases by 1 every {@code suddenDeathMultiplierStepSeconds} (2×, 3×, 4×, …).
+     */
+    private int getSuddenDeathKillLineMultiplier() {
+        int step = Math.max(1, config.getSuddenDeathMultiplierStepSeconds());
+        int base = Math.max(1, config.getSuddenDeathLinesPerKill());
+        return base + phaseSecondsRemaining / step;
     }
 
     private int calculateLinesPerKill() {
@@ -371,7 +391,7 @@ public class MatchManager {
         else baseLines = 1;
 
         if (currentPhase == GamePhase.SUDDEN_DEATH) {
-            return baseLines * 2;
+            return baseLines * getSuddenDeathKillLineMultiplier();
         }
         return baseLines;
     }

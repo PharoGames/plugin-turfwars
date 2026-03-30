@@ -38,8 +38,13 @@ public class TurfWarsConfig {
     @JsonProperty("suddenDeathAfterRounds")
     private int suddenDeathAfterRounds = 5;
 
+    /** Base line multiplier when sudden death begins (e.g. 2 = double). Increases by 1 each suddenDeathMultiplierStepSeconds. */
     @JsonProperty("suddenDeathLinesPerKill")
     private int suddenDeathLinesPerKill = 2;
+
+    /** After this many seconds in sudden death, kill line multiplier increases by 1 (triple, quadruple, …). */
+    @JsonProperty("suddenDeathMultiplierStepSeconds")
+    private int suddenDeathMultiplierStepSeconds = 150;
 
     @JsonProperty("suddenDeathWoolIntervalSeconds")
     private int suddenDeathWoolIntervalSeconds = 15;
@@ -96,6 +101,9 @@ public class TurfWarsConfig {
 
     public int getSuddenDeathLinesPerKill() { return suddenDeathLinesPerKill; }
     public void setSuddenDeathLinesPerKill(int suddenDeathLinesPerKill) { this.suddenDeathLinesPerKill = suddenDeathLinesPerKill; }
+
+    public int getSuddenDeathMultiplierStepSeconds() { return suddenDeathMultiplierStepSeconds; }
+    public void setSuddenDeathMultiplierStepSeconds(int suddenDeathMultiplierStepSeconds) { this.suddenDeathMultiplierStepSeconds = suddenDeathMultiplierStepSeconds; }
 
     public int getSuddenDeathWoolIntervalSeconds() { return suddenDeathWoolIntervalSeconds; }
     public void setSuddenDeathWoolIntervalSeconds(int suddenDeathWoolIntervalSeconds) { this.suddenDeathWoolIntervalSeconds = suddenDeathWoolIntervalSeconds; }
