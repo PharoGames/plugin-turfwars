@@ -139,7 +139,7 @@ See `.github/workflows/` for complete examples.
 
 - `AWS_ACCESS_KEY_ID` - AWS access key for S3 upload
 - `AWS_SECRET_ACCESS_KEY` - AWS secret for S3 upload
-- `AWS_REGION` - AWS region (default: `us-east-1`)
+- `AWS_REGION` - AWS region (default: `auto`)
 - `AWS_S3_PLUGINS_BUCKET` - S3 bucket name (default: `pharogames-plugins`)
 
 ### Build-Specific

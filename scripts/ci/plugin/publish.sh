@@ -62,7 +62,7 @@ if is_ci; then
     # CI: Upload to S3
     S3_BUCKET="${AWS_S3_PLUGINS_BUCKET:-pharogames-plugins}"
     S3_KEY="${artifact_id}.jar"
-    AWS_REGION="${AWS_REGION:-us-east-1}"
+    AWS_REGION="${AWS_REGION:-auto}"
 
     log_info "Uploading to s3://${S3_BUCKET}/${S3_KEY} ..."
 
@@ -74,7 +74,11 @@ if is_ci; then
         AWS_CMD="aws"
     fi
 
-    if ! "$AWS_CMD" s3 cp "$artifact_path" "s3://${S3_BUCKET}/${S3_KEY}" --region "$AWS_REGION"; then
+    aws_s3_args=(--region "$AWS_REGION")
+    if [[ -n "${AWS_ENDPOINT_URL:-}" ]]; then
+        aws_s3_args+=(--endpoint-url "$AWS_ENDPOINT_URL")
+    fi
+    if ! "$AWS_CMD" s3 cp "$artifact_path" "s3://${S3_BUCKET}/${S3_KEY}" "${aws_s3_args[@]}"; then
         die "Failed to upload to S3"
     fi
 

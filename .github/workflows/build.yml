@@ -28,11 +28,12 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: us-east-1
+          AWS_REGION: auto
+          AWS_ENDPOINT_URL: ${{ secrets.AWS_ENDPOINT_URL }}
         run: |
           mkdir -p $GITHUB_WORKSPACE/.ci-deps && python3 -m venv $GITHUB_WORKSPACE/.ci-deps/awsvenv && $GITHUB_WORKSPACE/.ci-deps/awsvenv/bin/pip install awscli -q
           for dep in plugin-relay-backend plugin-player-data plugin-cosmetics plugin-items plugin-gameplay-runtime plugin-teams plugin-spectator plugin-communicator plugin-scoreboard plugin-chat plugin-permissions plugin-coins; do
-            $GITHUB_WORKSPACE/.ci-deps/awsvenv/bin/aws s3 cp "s3://pharogames-plugins/${dep}.jar" "$GITHUB_WORKSPACE/.ci-deps/${dep}.jar" --region "$AWS_REGION"
+            $GITHUB_WORKSPACE/.ci-deps/awsvenv/bin/aws s3 cp "s3://pharogames-plugins/${dep}.jar" "$GITHUB_WORKSPACE/.ci-deps/${dep}.jar" --region "$AWS_REGION" --endpoint-url "$AWS_ENDPOINT_URL"
             mvn install:install-file \
               -Dfile="$GITHUB_WORKSPACE/.ci-deps/${dep}.jar" \
               -DgroupId=com.pharogames \
@@ -53,12 +54,13 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: us-east-1
+          AWS_REGION: auto
+          AWS_ENDPOINT_URL: ${{ secrets.AWS_ENDPOINT_URL }}
         run: |
           mkdir -p $GITHUB_WORKSPACE/.ci-deps && python3 -m venv $GITHUB_WORKSPACE/.ci-deps/awsvenv && $GITHUB_WORKSPACE/.ci-deps/awsvenv/bin/pip install awscli -q
           ARTIFACT_ID=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
           JAR_FILE=$(ls target/${ARTIFACT_ID}-*.jar | grep -v original | grep -v sources | grep -v javadoc | head -1)
-          $GITHUB_WORKSPACE/.ci-deps/awsvenv/bin/aws s3 cp "$JAR_FILE" "s3://pharogames-plugins/${ARTIFACT_ID}.jar" --region "$AWS_REGION"
+          $GITHUB_WORKSPACE/.ci-deps/awsvenv/bin/aws s3 cp "$JAR_FILE" "s3://pharogames-plugins/${ARTIFACT_ID}.jar" --region "$AWS_REGION" --endpoint-url "$AWS_ENDPOINT_URL"
           echo "Uploaded $JAR_FILE -> s3://pharogames-plugins/${ARTIFACT_ID}.jar"
       
       - name: Update plugin registry
