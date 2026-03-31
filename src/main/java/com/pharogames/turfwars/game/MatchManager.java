@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class MatchManager {
@@ -69,6 +70,11 @@ public class MatchManager {
     private ArrowManager arrowManager;
 
     private final Map<UUID, Integer> killTracker = new HashMap<>();
+
+    /** Deduplicates {@link #onKill} when both damage cancellation and {@code PlayerDeathEvent} fire. */
+    private static final long DEATH_DEBOUNCE_NS = 500_000_000L;
+    private final Map<UUID, Long> lastDeathNanos = new ConcurrentHashMap<>();
+    private final Map<UUID, BukkitTask> pendingRespawnTasks = new ConcurrentHashMap<>();
 
     /** Last sudden-death kill multiplier we broadcast; avoids duplicate tier-up messages. */
     private int suddenDeathMultiplierLastAnnounced;
@@ -237,6 +243,8 @@ public class MatchManager {
         matchStartTime = Instant.now();
         roundsCompleted = 0;
         killTracker.clear();
+        lastDeathNanos.clear();
+        flushPendingRespawns(false);
         turfManager.resetTurf();
 
         GameplayAPI gameplay = GameplayAPI.getInstance();
@@ -397,6 +405,18 @@ public class MatchManager {
     }
 
     public void onKill(Player killer, Player victim) {
+        if (!isInProgress()) {
+            return;
+        }
+
+        long now = System.nanoTime();
+        UUID victimId = victim.getUniqueId();
+        Long prevDeath = lastDeathNanos.get(victimId);
+        if (prevDeath != null && now - prevDeath < DEATH_DEBOUNCE_NS) {
+            return;
+        }
+        lastDeathNanos.put(victimId, now);
+
         // PvP rewards, turf lines, and elimination broadcast only during combat.
         // Fall, void, and other deaths still schedule respawn below.
         if (currentPhase == GamePhase.COMBAT || currentPhase == GamePhase.SUDDEN_DEATH) {
@@ -459,43 +479,75 @@ public class MatchManager {
         }
 
         checkWinCondition();
-        
-        if (currentPhase != GamePhase.ENDED) {
-            // Schedule respawn
-            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                if (victim.isOnline()) {
-                    TeamAPI respawnTeamApi = TeamAPI.getInstance();
-                    Team victimTeam = respawnTeamApi != null ? respawnTeamApi.getPlayerTeam(victim) : null;
-                    SpectatorAPI spectator = SpectatorAPI.getInstance();
-                    // #region agent log
-                    debugLog("H3", "MatchManager.java:onKill:327", "respawn_task_running", Map.of(
-                            "victimUuid", victim.getUniqueId().toString(),
-                            "phase", currentPhase.name(),
-                            "team", victimTeam != null ? victimTeam.getName() : "NONE",
-                            "locationX", victim.getLocation().getX(),
-                            "locationY", victim.getLocation().getY(),
-                            "locationZ", victim.getLocation().getZ()
-                    ));
-                    // #endregion
-                    if (spectator != null && spectator.isSpectator(victim)) {
-                        spectator.removeSpectator(victim);
-                        // #region agent log
-                        debugLog("H3", "MatchManager.java:onKill:338", "respawn_removed_spectator_state", Map.of(
-                                "victimUuid", victim.getUniqueId().toString(),
-                                "team", victimTeam != null ? victimTeam.getName() : "NONE"
-                        ));
-                        // #endregion
-                    }
-                    teleportToSpawn(victim);
-                    victim.setGameMode(org.bukkit.GameMode.SURVIVAL);
-                    victim.setAllowFlight(false);
-                    victim.setFlying(false);
-                    victim.setHealth(victim.getMaxHealth());
-                    victim.setFoodLevel(20);
-                    victim.setFireTicks(0);
-                    giveRespawnItems(victim);
-                }
-            }, config.getRespawnDelayTicks());
+
+        BukkitTask previousRespawn = pendingRespawnTasks.remove(victimId);
+        if (previousRespawn != null) {
+            previousRespawn.cancel();
+        }
+
+        BukkitTask respawnTask = plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            pendingRespawnTasks.remove(victimId);
+            if (!victim.isOnline()) {
+                return;
+            }
+            boolean matchOver = currentPhase == GamePhase.ENDED;
+            TeamAPI respawnTeamApi = TeamAPI.getInstance();
+            Team victimTeam = respawnTeamApi != null ? respawnTeamApi.getPlayerTeam(victim) : null;
+            SpectatorAPI spectator = SpectatorAPI.getInstance();
+            // #region agent log
+            debugLog("H3", "MatchManager.java:onKill:327", "respawn_task_running", Map.of(
+                    "victimUuid", victim.getUniqueId().toString(),
+                    "phase", currentPhase.name(),
+                    "team", victimTeam != null ? victimTeam.getName() : "NONE",
+                    "locationX", victim.getLocation().getX(),
+                    "locationY", victim.getLocation().getY(),
+                    "locationZ", victim.getLocation().getZ()
+            ));
+            // #endregion
+            applyPostKillRespawn(victim, matchOver);
+        }, config.getRespawnDelayTicks());
+
+        pendingRespawnTasks.put(victimId, respawnTask);
+    }
+
+    /** Snap player out of match spectator and optionally skip kit (match already over). */
+    private void applyPostKillRespawn(Player victim, boolean matchOver) {
+        SpectatorAPI spectator = SpectatorAPI.getInstance();
+        if (spectator != null && spectator.isSpectator(victim)) {
+            spectator.removeSpectator(victim);
+            TeamAPI ta = TeamAPI.getInstance();
+            Team vt = ta != null ? ta.getPlayerTeam(victim) : null;
+            // #region agent log
+            debugLog("H3", "MatchManager.java:onKill:338", "respawn_removed_spectator_state", Map.of(
+                    "victimUuid", victim.getUniqueId().toString(),
+                    "team", vt != null ? vt.getName() : "NONE"
+            ));
+            // #endregion
+        }
+        teleportToSpawn(victim);
+        victim.setGameMode(org.bukkit.GameMode.SURVIVAL);
+        victim.setAllowFlight(false);
+        victim.setFlying(false);
+        victim.setHealth(victim.getMaxHealth());
+        victim.setFoodLevel(20);
+        victim.setFireTicks(0);
+        if (matchOver) {
+            victim.getInventory().clear();
+        } else {
+            giveRespawnItems(victim);
+        }
+    }
+
+    private void flushPendingRespawns(boolean matchOver) {
+        for (UUID id : new ArrayList<>(pendingRespawnTasks.keySet())) {
+            BukkitTask t = pendingRespawnTasks.remove(id);
+            if (t != null) {
+                t.cancel();
+            }
+            Player p = plugin.getServer().getPlayer(id);
+            if (p != null && p.isOnline()) {
+                applyPostKillRespawn(p, matchOver);
+            }
         }
     }
 
@@ -538,6 +590,8 @@ public class MatchManager {
         setPhase(GamePhase.ENDED);
         cancelTimer();
         arrowManager.stopRegen();
+
+        flushPendingRespawns(true);
 
         CosmeticsAPI cosmetics = CosmeticsAPI.getInstance();
         if (cosmetics != null) {
@@ -758,6 +812,7 @@ public class MatchManager {
 
     public void cleanup() {
         cancelTimer();
+        flushPendingRespawns(true);
         if (arrowManager != null) arrowManager.stopRegen();
         if (woolManager != null) woolManager.cleanup();
 
