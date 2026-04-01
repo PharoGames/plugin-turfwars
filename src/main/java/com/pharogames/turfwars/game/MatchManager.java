@@ -36,8 +36,10 @@ import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
@@ -78,6 +80,34 @@ public class MatchManager {
 
     /** Last sudden-death kill multiplier we broadcast; avoids duplicate tier-up messages. */
     private int suddenDeathMultiplierLastAnnounced;
+
+    private final Set<UUID> pendingReconnects = new HashSet<>();
+
+    private void registerPendingReconnect(UUID playerUuid) {
+        pendingReconnects.add(playerUuid);
+        BackendNetworkAPI api = RelayBackendPlugin.getAPI();
+        if (api != null) {
+            api.registerPendingMatchReconnect(playerUuid);
+        }
+    }
+
+    private void clearPendingReconnect(UUID playerUuid) {
+        pendingReconnects.remove(playerUuid);
+        BackendNetworkAPI api = RelayBackendPlugin.getAPI();
+        if (api != null) {
+            api.clearPendingMatchReconnect(playerUuid);
+        }
+    }
+
+    private void clearAllPendingReconnects() {
+        BackendNetworkAPI api = RelayBackendPlugin.getAPI();
+        if (api != null) {
+            for (UUID playerUuid : pendingReconnects) {
+                api.clearPendingMatchReconnect(playerUuid);
+            }
+        }
+        pendingReconnects.clear();
+    }
 
     public MatchManager(JavaPlugin plugin, TurfWarsConfig config, World world, 
                         TurfWarsScoreboardProvider scoreboardProvider, MapMetadata mapMetadata) {
@@ -120,6 +150,9 @@ public class MatchManager {
         boolean hasExpectedPlayers = api != null && api.hasExpectedPlayers();
         int expectedCount = hasExpectedPlayers ? api.getExpectedPlayers().size() : -1;
         boolean expectedPlayer = !hasExpectedPlayers || api.isExpectedPlayer(player.getUniqueId());
+
+        clearPendingReconnect(player.getUniqueId());
+
         // #region agent log
         debugLog("H1", "MatchManager.java:onPlayerJoin:98", "player_joined", Map.of(
                 "playerUuid", player.getUniqueId().toString(),
@@ -183,6 +216,7 @@ public class MatchManager {
             setPhase(GamePhase.WAITING);
             broadcastKey("turfwars.countdown_cancelled");
         } else if (isInProgress()) {
+            registerPendingReconnect(player.getUniqueId());
             checkWinCondition(); // Maybe they were the last player on a team
         }
     }
@@ -590,6 +624,8 @@ public class MatchManager {
         setPhase(GamePhase.ENDED);
         cancelTimer();
         arrowManager.stopRegen();
+
+        clearAllPendingReconnects();
 
         flushPendingRespawns(true);
 
