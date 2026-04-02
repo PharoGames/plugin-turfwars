@@ -99,7 +99,7 @@ Docker operations with multi-arch support:
 - **Build**: Single-arch and multi-arch Docker builds
 - **Push**: Pushes to GHCR
 - **Tagging**: Generate tags with branch/SHA
-- **Multi-arch**: Build for amd64 and arm64 simultaneously
+- **AMD64**: Build for linux/amd64 only
 
 ### maven.sh
 

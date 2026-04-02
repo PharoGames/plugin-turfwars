@@ -13,7 +13,7 @@ get_docker_registry() {
 }
 
 # Build Docker image
-# Usage: docker_build image-name:tag /path/to/dockerfile /path/to/context [--platform linux/amd64,linux/arm64]
+# Usage: docker_build image-name:tag /path/to/dockerfile /path/to/context [--platform linux/amd64]
 docker_build() {
     local image_tag="$1"
     local dockerfile="${2:-Dockerfile}"
@@ -84,7 +84,7 @@ docker_build_multiarch() {
     fi
     
     log_step "Building multi-arch Docker image: $image_tag"
-    log_info "Platforms: linux/amd64, linux/arm64"
+    log_info "Platforms: linux/amd64"
     log_info "Dockerfile: $dockerfile"
     log_info "Context: $context"
     
@@ -99,7 +99,7 @@ docker_build_multiarch() {
     # Build for multiple platforms
     local build_cmd=(
         docker buildx build
-        --platform linux/amd64,linux/arm64
+        --platform linux/amd64
         -f "$dockerfile"
         -t "$image_tag"
         "${extra_args[@]}"
@@ -199,7 +199,7 @@ docker_build_and_push_multiarch() {
     fi
     
     log_step "Building and pushing multi-arch Docker image: $image_tag"
-    log_info "Platforms: linux/amd64, linux/arm64"
+    log_info "Platforms: linux/amd64"
     
     # Ensure buildx builder exists
     if ! docker buildx inspect multiarch-builder >/dev/null 2>&1; then
@@ -218,7 +218,7 @@ docker_build_and_push_multiarch() {
     # Build and push in one command
     local build_cmd=(
         docker buildx build
-        --platform linux/amd64,linux/arm64
+        --platform linux/amd64
         -f "$dockerfile"
         -t "$image_tag"
         "${extra_args[@]}"
