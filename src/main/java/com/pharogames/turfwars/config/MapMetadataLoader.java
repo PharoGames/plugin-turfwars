@@ -1,24 +1,18 @@
 package com.pharogames.turfwars.config;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.logging.Logger;
 
 public class MapMetadataLoader {
 
-    private static final String METADATA_PATH = "/data/config/map-metadata.json";
     private static final String ENV_KEY = "MAP_METADATA";
     private final Logger logger;
-    private final ObjectMapper mapper;
 
     public MapMetadataLoader(Logger logger) {
         this.logger = logger;
-        this.mapper = new ObjectMapper();
     }
 
     public MapMetadata loadMetadata() {
@@ -28,19 +22,8 @@ public class MapMetadataLoader {
             return envMetadata;
         }
 
-        File file = new File(METADATA_PATH);
-        if (!file.exists() || !file.canRead()) {
-            logger.warning("Map metadata file not found or unreadable: " + METADATA_PATH);
-            return null;
-        }
-
-        try {
-            MapMetadata metadata = mapper.readValue(file, MapMetadata.class);
-            return normalizeAndValidate(metadata, "file " + METADATA_PATH);
-        } catch (IOException e) {
-            logger.severe("Failed to parse map metadata: " + e.getMessage());
-            return null;
-        }
+        logger.warning("Map metadata missing from MAP_METADATA env var.");
+        return null;
     }
 
     private MapMetadata loadFromEnv() {
@@ -50,7 +33,7 @@ public class MapMetadataLoader {
         }
 
         try {
-            JsonNode root = mapper.readTree(raw);
+            JsonObject root = JsonParser.parseString(raw).getAsJsonObject();
             MapMetadata metadata = new MapMetadata();
             metadata.blueSpawn = parsePoint(root.get("blueSpawn"));
             metadata.redSpawn = parsePoint(root.get("redSpawn"));
@@ -92,7 +75,7 @@ public class MapMetadataLoader {
         return metadata;
     }
 
-    private String parseAxis(JsonNode node, MapMetadata metadata) {
+    private String parseAxis(JsonElement node, MapMetadata metadata) {
         String raw = parseString(node);
         if (raw == null || raw.isBlank()) {
             return inferAxis(metadata, "missing turfAxis");
@@ -124,82 +107,69 @@ public class MapMetadataLoader {
         return inferred;
     }
 
-    private Integer parseInt(JsonNode node) {
-        if (node == null || node.isNull()) {
+    private Integer parseInt(JsonElement node) {
+        if (node == null || node.isJsonNull()) {
             return null;
         }
-        if (node.isInt() || node.isLong()) {
-            return node.asInt();
+        if (node.isJsonPrimitive() && node.getAsJsonPrimitive().isNumber()) {
+            return node.getAsInt();
         }
-        if (node.isObject()) {
-            JsonNode valueNode = node.get("value");
-            if (valueNode != null && valueNode.isNumber()) {
-                return valueNode.asInt();
+        if (node.isJsonObject()) {
+            JsonElement valueNode = node.getAsJsonObject().get("value");
+            if (valueNode != null && valueNode.isJsonPrimitive() && valueNode.getAsJsonPrimitive().isNumber()) {
+                return valueNode.getAsInt();
             }
         }
         return null;
     }
 
-    private String parseString(JsonNode node) {
-        if (node == null || node.isNull()) {
+    private String parseString(JsonElement node) {
+        if (node == null || node.isJsonNull()) {
             return null;
         }
-        if (node.isTextual()) {
-            return node.asText();
+        if (node.isJsonPrimitive() && node.getAsJsonPrimitive().isString()) {
+            return node.getAsString();
         }
-        if (node.isObject()) {
-            JsonNode valueNode = node.get("value");
-            if (valueNode != null && valueNode.isTextual()) {
-                return valueNode.asText();
+        if (node.isJsonObject()) {
+            JsonElement valueNode = node.getAsJsonObject().get("value");
+            if (valueNode != null && valueNode.isJsonPrimitive() && valueNode.getAsJsonPrimitive().isString()) {
+                return valueNode.getAsString();
             }
         }
         return null;
     }
 
-    private Point parsePoint(JsonNode node) {
-        if (node == null || node.isNull()) {
+    private Point parsePoint(JsonElement node) {
+        if (node == null || node.isJsonNull()) {
             return null;
         }
 
-        JsonNode valueNode = node;
-        if (node.isObject() && node.has("type") && node.has("value")) {
-            valueNode = node.get("value");
+        JsonElement valueNode = node;
+        if (node.isJsonObject() && node.getAsJsonObject().has("type") && node.getAsJsonObject().has("value")) {
+            valueNode = node.getAsJsonObject().get("value");
         }
-        if (valueNode == null || !valueNode.isObject()) {
+        if (valueNode == null || !valueNode.isJsonObject()) {
             return null;
         }
-        if (!valueNode.has("x") || !valueNode.has("y") || !valueNode.has("z")) {
+        JsonObject obj = valueNode.getAsJsonObject();
+        if (!obj.has("x") || !obj.has("y") || !obj.has("z")) {
             return null;
         }
 
         Point point = new Point();
-        point.x = valueNode.get("x").asDouble();
-        point.y = valueNode.get("y").asDouble();
-        point.z = valueNode.get("z").asDouble();
+        point.x = obj.get("x").getAsDouble();
+        point.y = obj.get("y").getAsDouble();
+        point.z = obj.get("z").getAsDouble();
         return point;
     }
 
-    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class MapMetadata {
-        @JsonProperty("turfAxis")
         private String turfAxis = "Z";
-
-        @JsonProperty("blueSpawn")
         private Point blueSpawn;
-
-        @JsonProperty("redSpawn")
         private Point redSpawn;
-
-        @JsonProperty("arenaMin")
         private Point arenaMin;
-
-        @JsonProperty("arenaMax")
         private Point arenaMax;
-
-        @JsonProperty("floorY")
         private int floorY = 64;
-
-        @JsonProperty("totalLines")
         private int totalLines = 50;
 
         public String getTurfAxis() { return turfAxis; }
@@ -211,11 +181,10 @@ public class MapMetadataLoader {
         public int getTotalLines() { return totalLines; }
     }
 
-    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Point {
-        @JsonProperty("x") private double x;
-        @JsonProperty("y") private double y;
-        @JsonProperty("z") private double z;
+        private double x;
+        private double y;
+        private double z;
 
         public double getX() { return x; }
         public double getY() { return y; }
