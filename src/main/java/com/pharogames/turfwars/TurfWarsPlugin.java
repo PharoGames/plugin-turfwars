@@ -12,7 +12,11 @@ import com.pharogames.turfwars.scoreboard.TurfWarsScoreboardProvider;
 import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public class TurfWarsPlugin extends JavaPlugin {
+import com.pharogames.relay.warmpool.GameMapReadyEvent;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+
+public class TurfWarsPlugin extends JavaPlugin implements Listener {
 
     private TurfWarsConfig config;
     private MatchManager matchManager;
@@ -29,6 +33,12 @@ public class TurfWarsPlugin extends JavaPlugin {
             return;
         }
 
+        getServer().getPluginManager().registerEvents(this, this);
+        getLogger().info("TurfWars plugin enabled, waiting for GameMapReadyEvent.");
+    }
+
+    @EventHandler
+    public void onMapReady(GameMapReadyEvent event) {
         MapMetadataLoader metaLoader = new MapMetadataLoader(getLogger());
         MapMetadataLoader.MapMetadata mapMetadata = metaLoader.loadMetadata();
         if (mapMetadata == null) {
@@ -37,7 +47,7 @@ public class TurfWarsPlugin extends JavaPlugin {
             return;
         }
 
-        World world = getServer().getWorlds().get(0);
+        World world = event.getWorld();
 
         scoreboardProvider = new TurfWarsScoreboardProvider();
         matchManager = new MatchManager(this, config, world, scoreboardProvider, mapMetadata);
@@ -52,7 +62,7 @@ public class TurfWarsPlugin extends JavaPlugin {
 
         registerKitSelectorInteraction();
 
-        getLogger().info("TurfWars plugin enabled.");
+        getLogger().info("TurfWars map initialized.");
     }
 
     @Override
