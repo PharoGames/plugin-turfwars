@@ -40,7 +40,7 @@ public class TurfWarsPlugin extends JavaPlugin implements Listener {
     @EventHandler
     public void onMapReady(GameMapReadyEvent event) {
         MapMetadataLoader metaLoader = new MapMetadataLoader(getLogger());
-        MapMetadataLoader.MapMetadata mapMetadata = metaLoader.loadMetadata();
+        MapMetadataLoader.MapMetadata mapMetadata = metaLoader.loadMetadata(event.getMapMetadata());
         if (mapMetadata == null) {
             getLogger().severe("Map metadata missing. Gamemode cannot start.");
             getServer().getPluginManager().disablePlugin(this);

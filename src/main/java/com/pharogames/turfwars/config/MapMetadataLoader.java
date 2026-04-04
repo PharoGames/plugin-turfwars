@@ -15,25 +15,13 @@ public class MapMetadataLoader {
         this.logger = logger;
     }
 
-    public MapMetadata loadMetadata() {
-        MapMetadata envMetadata = loadFromEnv();
-        if (envMetadata != null) {
-            logger.info("Loaded TurfWars map metadata from MAP_METADATA.");
-            return envMetadata;
-        }
-
-        logger.warning("Map metadata missing from MAP_METADATA env var.");
-        return null;
-    }
-
-    private MapMetadata loadFromEnv() {
-        String raw = System.getenv(ENV_KEY);
-        if (raw == null || raw.isBlank()) {
+    public MapMetadata loadMetadata(JsonObject root) {
+        if (root == null) {
+            logger.warning("Map metadata is null.");
             return null;
         }
 
         try {
-            JsonObject root = JsonParser.parseString(raw).getAsJsonObject();
             MapMetadata metadata = new MapMetadata();
             metadata.blueSpawn = parsePoint(root.get("blueSpawn"));
             metadata.redSpawn = parsePoint(root.get("redSpawn"));
@@ -51,9 +39,9 @@ public class MapMetadataLoader {
             }
 
             metadata.turfAxis = parseAxis(root.get("turfAxis"), metadata);
-            return normalizeAndValidate(metadata, "MAP_METADATA");
+            return normalizeAndValidate(metadata, "GameMapReadyEvent");
         } catch (Exception e) {
-            logger.warning("MAP_METADATA is not valid TurfWars metadata: " + e.getMessage());
+            logger.warning("Invalid TurfWars metadata: " + e.getMessage());
             return null;
         }
     }
